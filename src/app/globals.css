@@ -26,7 +26,7 @@ body {
   to   { transform: translateX(120%); opacity: 0; }
 }
 
-/* ===== Belto Hub premium animations ===== */
+/* ===== Belto EdStore premium animations ===== */
 @keyframes card-shine {
   0%   { transform: translateX(-120%); opacity: 0; }
   10%  { opacity: .9; }

@@ -4,7 +4,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 const font = Plus_Jakarta_Sans({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Belto Apps Hub",
+  title: "Belto EdStore",
   description: "A curated app store for educators and students by Belto.",
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
