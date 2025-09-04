@@ -171,14 +171,16 @@ export default function Home() {
         </div>
         <div className="grid md:grid-cols-5 sm:grid-cols-3 grid-cols-1 gap-4">
           {topFive.map((x,i)=>(
-            <div
+            <a
               key={x.slug}
-              className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_8px_40px_rgba(0,0,0,.35)] p-4"
+              href={`/go/${x.slug}`}
+              target="_blank" rel="noopener noreferrer"
+              className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_8px_40px_rgba(0,0,0,.35)] p-4 hover:bg-white/10 transition"
             >
               <div className="text-sm text-white/60">#{i+1}</div>
               <div className="font-semibold">{x.title}</div>
               <div className="text-sm text-white/60 mt-1">{x.total} total clicks</div>
-            </div>
+            </a>
           ))}
         </div>
       </section>
