@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { APPS } from "@/lib/apps";
 import AppCard from "@/components/AppCard";
 import { LucideIcon } from "@/components/icons";
+import type { LucideKeys } from "@/components/icons";
 import { BarChart3, Flame, Search, Users, GraduationCap } from "lucide-react";
 import clsx from "clsx";
 
@@ -58,7 +59,7 @@ export default function Home() {
   const tCount = APPS.filter(a=>a.category==="teachers").length;
   const sCount = APPS.filter(a=>a.category==="students").length;
 
-  function StatCard({ icon, label, value }: { icon: string; label: string; value: string | number }) {
+  function StatCard({ icon, label, value }: { icon: LucideKeys; label: string; value: string | number }) {
     return (
       <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_8px_40px_rgba(0,0,0,.35)] p-4 flex items-center gap-3">
         <div className="p-3 rounded-xl bg-white/10"><LucideIcon name={icon} className="w-5 h-5"/></div>

@@ -2,7 +2,7 @@
 import * as React from "react";
 import * as Lucide from "lucide-react";
 
-type LucideKeys = keyof typeof Lucide;
+export type LucideKeys = keyof typeof Lucide;           // ✅ export the key type
 type IconComponent = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 
 export function LucideIcon({ name, className }: { name: LucideKeys; className?: string }) {
