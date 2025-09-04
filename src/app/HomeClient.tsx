@@ -23,7 +23,7 @@ function beacon(slug: string) {
   } catch {}
 }
 
-export default function HomeClient({ initialStats, apps }: { initialStats: StatMap; apps?: any[] }) () {
+export default function HomeClient({ initialStats, apps }: { initialStats: StatMap; apps?: any[] }) {
   const [view, setView] = useState<View>("teachers");
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<"hot" | "alpha">("hot");
