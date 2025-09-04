@@ -1,11 +1,20 @@
-import { MongoClient } from "mongodb";
-const uri = process.env.MONGODB_URI!;
-const dbName = process.env.MONGODB_DB || "belto_hub";
-declare global { var _mongoClientPromise: Promise<MongoClient> | undefined; }
-let client: MongoClient; let clientPromise: Promise<MongoClient>;
-if (!uri) throw new Error("Missing MONGODB_URI");
-if (process.env.NODE_ENV === "development") {
-  if (!global._mongoClientPromise) { client = new MongoClient(uri); global._mongoClientPromise = client.connect(); }
-  clientPromise = global._mongoClientPromise;
-} else { client = new MongoClient(uri); clientPromise = client.connect(); }
-export async function getDb() { const c = await clientPromise; return c.db(dbName); }
+import { MongoClient, Db } from "mongodb";
+
+let client: MongoClient | null = null;
+let db: Db | null = null;
+
+export async function getDb(): Promise<Db> {
+  const uri = process.env.MONGODB_URI;
+  const name = process.env.MONGODB_DB || "belto_hub";
+
+  if (!uri || !/^mongodb(\+srv)?:\/\//.test(uri)) {
+    throw new Error('MONGODB_URI missing or invalid (needs "mongodb://" or "mongodb+srv://")');
+  }
+
+  if (db && client) return db;
+
+  client = new MongoClient(uri, { });
+  await client.connect();
+  db = client.db(name);
+  return db!;
+}

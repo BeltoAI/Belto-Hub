@@ -1,30 +1,77 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongo";
-import { APPS } from "@/lib/apps";
-export const revalidate = 0;
-type DayBucket = { date: string; count: number };
+
+export const dynamic = "force-dynamic"; // never prerender
+
+type StatsPayload = {
+  totals: Record<string, number>;
+  today: Record<string, number>;
+  last14: Record<string, { date: string; count: number }[]>;
+  lastUpdatedISO: string;
+  error?: string;
+};
+
 export async function GET() {
-  const db = await getDb(); const col = db.collection("click_events");
-  const now = new Date();
-  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const past14 = new Date(todayStart); past14.setUTCDate(past14.getUTCDate() - 13);
+  try {
+    const db = await getDb();
+    const col = db.collection("click_events");
 
-  const totalsAgg = await col.aggregate([{ $group: { _id: "$slug", count: { $sum: 1 } } }]).toArray();
-  const totals: Record<string, number> = {}; totalsAgg.forEach(d => totals[d._id] = d.count);
+    const now = new Date();
+    const start14 = new Date(now);
+    start14.setDate(now.getDate() - 13);
+    start14.setHours(0,0,0,0);
 
-  const todayAgg = await col.aggregate([{ $match: { ts: { $gte: todayStart } } }, { $group: { _id: "$slug", count: { $sum: 1 } } }]).toArray();
-  const today: Record<string, number> = {}; todayAgg.forEach(d => today[d._id] = d.count);
+    // Totals per slug
+    const totalsAgg = await col.aggregate([
+      { $group: { _id: "$slug", total: { $sum: 1 } } },
+    ]).toArray();
 
-  const last14Agg = await col.aggregate([
-    { $match: { ts: { $gte: past14 } } },
-    { $project: { slug: 1, day: { $dateToString: { format: "%Y-%m-%d", date: "$ts" } } } },
-    { $group: { _id: { slug: "$slug", day: "$day" }, count: { $sum: 1 } } },
-  ]).toArray();
+    // Today per slug
+    const startToday = new Date(now);
+    startToday.setHours(0,0,0,0);
+    const todayAgg = await col.aggregate([
+      { $match: { ts: { $gte: startToday } } },
+      { $group: { _id: "$slug", today: { $sum: 1 } } },
+    ]).toArray();
 
-  const days = Array.from({length:14},(_,i)=>{ const d = new Date(todayStart); d.setUTCDate(d.getUTCDate()-13+i); return d.toISOString().slice(0,10); });
-  const last14: Record<string, DayBucket[]> = {};
-  for (const app of APPS) last14[app.slug] = days.map(date => ({ date, count: 0 }));
-  for (const r of last14Agg) { const slug = r._id.slug; const day = r._id.day; const arr = last14[slug]; if (arr) { const idx = arr.findIndex(x => x.date === day); if (idx >= 0) arr[idx].count = r.count; } }
+    // Last 14 days per slug per day
+    const last14Agg = await col.aggregate([
+      { $match: { ts: { $gte: start14 } } },
+      { $project: {
+          slug: 1,
+          day: { $dateToString: { format: "%Y-%m-%d", date: "$ts" } },
+        }
+      },
+      { $group: { _id: { slug: "$slug", day: "$day" }, count: { $sum: 1 } } },
+      { $sort: { "_id.day": 1 } },
+    ]).toArray();
 
-  return NextResponse.json({ totals, today, last14, lastUpdatedISO: new Date().toISOString() }, { headers: { "Cache-Control": "no-store" }});
+    const totals: Record<string, number> = {};
+    for (const r of totalsAgg) totals[r._id as string] = r.total as number;
+
+    const today: Record<string, number> = {};
+    for (const r of todayAgg) today[r._id as string] = r.today as number;
+
+    const last14: Record<string, { date: string; count: number }[]> = {};
+    for (const r of last14Agg) {
+      const slug = (r._id as any).slug as string;
+      const day = (r._id as any).day as string;
+      (last14[slug] ||= []).push({ date: day, count: r.count as number });
+    }
+
+    const payload: StatsPayload = {
+      totals, today, last14,
+      lastUpdatedISO: new Date().toISOString(),
+    };
+
+    return NextResponse.json(payload, { headers: { "Cache-Control": "no-store" } });
+  } catch (e: any) {
+    const payload: StatsPayload = {
+      totals: {}, today: {}, last14: {},
+      lastUpdatedISO: new Date().toISOString(),
+      error: e?.message ?? "db error",
+    };
+    // Never fail the build — return safe fallback
+    return NextResponse.json(payload, { headers: { "Cache-Control": "no-store" } });
+  }
 }
