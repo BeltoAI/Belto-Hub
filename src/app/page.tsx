@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { APPS } from "@/lib/apps";
 import AppCard from "@/components/AppCard";
 import { LucideIcon } from "@/components/icons";
-import { BarChart3, Flame, ListFilter, Search, Users, GraduationCap } from "lucide-react";
+import { BarChart3, Flame, Search, Users, GraduationCap } from "lucide-react";
 import clsx from "clsx";
 
 type StatsPayload = {
