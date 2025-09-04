@@ -1,5 +1,5 @@
-import * as React from "react";
 "use client";
+import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { APPS } from "@/lib/apps";
 import AppCard from "@/components/AppCard";
