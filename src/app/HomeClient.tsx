@@ -3,7 +3,6 @@ import type { StatMap } from "@/lib/stats";
 import { APPS } from "@/lib/apps";
 import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { (apps ?? APPS) } from "@/lib/apps";
 import AppCard from "@/components/AppCard";
 import { LucideIcon } from "@/components/icons";
 import { BarChart3, Flame, Search, Users, GraduationCap } from "lucide-react";
@@ -42,7 +41,6 @@ export default function HomeClient({ initialStats, apps }: { initialStats: StatM
   }, []);
 
   const apps = useMemo(() => {
-    const filtered = (apps ?? APPS)
       .filter(a => a.category === view)
       .filter(a => a.title.toLowerCase().includes(q.toLowerCase()) || a.description.toLowerCase().includes(q.toLowerCase()));
     const withTotals = filtered.map(a => ({ a, t: stats?.totals[a.slug] ?? 0 }));
@@ -53,19 +51,15 @@ export default function HomeClient({ initialStats, apps }: { initialStats: StatM
 
   const maxTotal = useMemo(()=>{
     if (!stats) return 0;
-    let m = 0; for (const s of (apps ?? APPS)) { m = Math.max(m, stats.totals[s.slug] ?? 0); }
     return m;
   }, [stats]);
 
   const topFive = useMemo(()=>{
     if (!stats) return [];
-    return (apps ?? APPS).map(a => ({ slug: a.slug, title: a.title, total: stats.totals[a.slug] ?? 0, url: a.url }))
       .sort((x,y)=> y.total - x.total)
       .slice(0,5);
   }, [stats]);
 
-  const tCount = (apps ?? APPS).filter(a=>a.category==="teachers").length;
-  const sCount = (apps ?? APPS).filter(a=>a.category==="students").length;
 
   function StatCard({ icon, label, value }: { icon: any; label: string; value: string | number }) {
     return (
