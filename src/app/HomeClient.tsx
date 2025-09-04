@@ -1,4 +1,6 @@
 "use client";
+import type { StatMap } from "@/lib/stats";
+import { APPS } from "@/lib/apps";
 import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { (apps ?? APPS) } from "@/lib/apps";
