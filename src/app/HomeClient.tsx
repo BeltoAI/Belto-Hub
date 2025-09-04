@@ -1,206 +1,267 @@
 "use client";
+
 import * as React from "react";
-import { useEffect, useMemo, useState } from "react";
-import { (apps ?? APPS) } from "@/lib/apps";
-import AppCard from "@/components/AppCard";
+import type { StatMap } from "@/lib/stats";
+import { APPS } from "@/lib/apps";
 import { LucideIcon } from "@/components/icons";
-import { BarChart3, Flame, Search, Users, GraduationCap } from "lucide-react";
-import clsx from "clsx";
+import { motion, AnimatePresence } from "framer-motion";
 
-type StatsPayload = {
-  totals: Record<string, number>;
-  today: Record<string, number>;
-  last14: Record<string, { date: string; count: number }[]>;
-  lastUpdatedISO: string;
+type Audience = "educators" | "students";
+type AppItem = (typeof APPS)[number] & { audience?: Audience };
+
+const container = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.06, delayChildren: 0.04 } },
 };
-type View = "teachers" | "students";
+const card = {
+  hidden: { opacity: 0, y: 14, scale: 0.98 },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { type: "spring", stiffness: 320, damping: 22, mass: 0.6 },
+  },
+};
 
-function beacon(slug: string) {
-  try {
-    const blob = new Blob([JSON.stringify({ slug, ts: Date.now() })], { type: "application/json" });
-    navigator.sendBeacon("/api/click", blob);
-  } catch {}
+// Optional explicit overrides if you want to force a lane for a slug:
+const AUDIENCE_BY_SLUG: Record<string, Audience> = {
+  // "exam-generator": "educators",
+  // "flashcards": "students",
+};
+
+// Heuristic if no audience is provided on the app object:
+function inferAudience(a: AppItem): Audience {
+  if (a.audience) return a.audience;
+  const hay = `${a.slug} ${a.title} ${a.description ?? ""}`.toLowerCase();
+  const eduHits = /(teacher|educator|classroom|lesson|lecture|syllabus|curriculum|worksheet|assignment|grade|rubric|exam|quiz)/.test(hay);
+  const stuHits = /(student|study|flashcard|notes?|notebook|planner|resume|gpa|practice|solver|homework)/.test(hay);
+  if (AUDIENCE_BY_SLUG[a.slug]) return AUDIENCE_BY_SLUG[a.slug];
+  if (eduHits && !stuHits) return "educators";
+  if (stuHits && !eduHits) return "students";
+  // Tie-breaker: tools with “exam/grade/lesson” lean educators; else students
+  if (/(exam|grade|lesson|teacher)/.test(hay)) return "educators";
+  return "students";
 }
 
-export default function HomeClient({ initialStats, apps }: { initialStats: StatMap; apps?: any[] }) () {
-  const [view, setView] = useState<View>("teachers");
-  const [q, setQ] = useState("");
-  const [sort, setSort] = useState<"hot" | "alpha">("hot");
-  const [stats, setStats] = useState<StatMap>(initialStats);
+export default function HomeClient({
+  initialStats,
+  apps,
+}: {
+  initialStats: StatMap;
+  apps?: AppItem[];
+}) {
+  const items = (apps ?? APPS) as AppItem[];
+  const [stats, setStats] = React.useState<StatMap>(initialStats);
+  const [q, setQ] = React.useState("");
+  const [sort, setSort] = React.useState<"hot" | "alpha">("hot");
+  const [lane, setLane] = React.useState<Audience>("educators"); // default lane
+  const [cursor, setCursor] = React.useState({ x: 0, y: 0 });
 
-  useEffect(() => {
-    const run = async () => {
-      const res = await /* fetch("/api/stats", { cache: "no-store" }); */
-      const data = (await res.json()) as StatsPayload;
-      setStats(data);
-    };
-    run();
-    const id = setInterval(run, 15000);
-    return () => clearInterval(id);
-  }, []);
+  React.useEffect(() => setStats(initialStats), [initialStats]);
 
-  const apps = useMemo(() => {
-    const filtered = (apps ?? APPS)
-      .filter(a => a.category === view)
-      .filter(a => a.title.toLowerCase().includes(q.toLowerCase()) || a.description.toLowerCase().includes(q.toLowerCase()));
-    const withTotals = filtered.map(a => ({ a, t: stats?.totals[a.slug] ?? 0 }));
-    if (sort === "hot") withTotals.sort((x,y)=> y.t - x.t || x.a.title.localeCompare(y.a.title));
-    if (sort === "alpha") withTotals.sort((x,y)=> x.a.title.localeCompare(y.a.title));
-    return withTotals.map(({a})=>a);
-  }, [stats, q, sort, view]);
+  // Spotlight cursor glow
+  const glowStyle = { "--x": `${cursor.x}px`, "--y": `${cursor.y}px` } as React.CSSProperties;
 
-  const maxTotal = useMemo(()=>{
-    if (!stats) return 0;
-    let m = 0; for (const s of (apps ?? APPS)) { m = Math.max(m, stats.totals[s.slug] ?? 0); }
-    return m;
-  }, [stats]);
-
-  const topFive = useMemo(()=>{
-    if (!stats) return [];
-    return (apps ?? APPS).map(a => ({ slug: a.slug, title: a.title, total: stats.totals[a.slug] ?? 0, url: a.url }))
-      .sort((x,y)=> y.total - x.total)
-      .slice(0,5);
-  }, [stats]);
-
-  const tCount = (apps ?? APPS).filter(a=>a.category==="teachers").length;
-  const sCount = (apps ?? APPS).filter(a=>a.category==="students").length;
-
-  function StatCard({ icon, label, value }: { icon: any; label: string; value: string | number }) {
-    return (
-      <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_8px_40px_rgba(0,0,0,.35)] p-4 flex items-center gap-3">
-        <div className="p-3 rounded-xl bg-white/10"><LucideIcon name={icon} className="w-5 h-5"/></div>
-        <div>
-          <div className="text-sm text-white/60">{label}</div>
-          <div className="text-lg font-semibold">{value}</div>
-        </div>
-      </div>
+  // Search + sort, then split into lanes
+  const { educators, students } = React.useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    let list = items.filter((a) =>
+      needle
+        ? (a.title + " " + (a.description ?? "") + " " + a.slug).toLowerCase().includes(needle)
+        : true
     );
-  }
+
+    // sort across all, we’ll split after
+    if (sort === "hot") {
+      list = list.sort((a, b) => {
+        const sa = stats[a.slug] ?? { today: 0, total: 0 };
+        const sb = stats[b.slug] ?? { today: 0, total: 0 };
+        if (sb.today !== sa.today) return sb.today - sa.today;
+        return (sb.total ?? 0) - (sa.total ?? 0);
+      });
+    } else {
+      list = list.sort((a, b) => a.title.localeCompare(b.title));
+    }
+
+    const educators: AppItem[] = [];
+    const students: AppItem[] = [];
+    for (const a of list) (inferAudience(a) === "educators" ? educators : students).push(a);
+    return { educators, students };
+  }, [items, q, sort, stats]);
+
+  const active = lane === "educators" ? educators : students;
 
   return (
-    <main className="space-y-10">
-      {/* HERO */}
-      <header className="space-y-6">
-        <div className="text-4xl sm:text-5xl font-extrabold leading-tight tracking-tight">
-          The <span className="gradient-text">Belto</span> Apps Hub
+    <main
+      className="relative mx-auto max-w-7xl p-6"
+      onMouseMove={(e) => {
+        const el = e.currentTarget.getBoundingClientRect();
+        setCursor({ x: e.clientX - el.left, y: e.clientY - el.top });
+      }}
+    >
+      {/* Spotlight cursor glow */}
+      <div className="pointer-events-none absolute inset-0 z-0 transition-opacity duration-300" style={glowStyle}>
+        <div className="absolute inset-0 [background:radial-gradient(600px_at_var(--x)_var(--y),rgba(120,119,198,0.16),transparent_60%)]" />
+      </div>
+
+      {/* Hero / Header */}
+      <section className="relative z-10 mb-8">
+        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-3 py-1 text-xs text-zinc-300 backdrop-blur">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+          Live
+          <span className="text-zinc-500">·</span>
+          Premium Tools
         </div>
-        <p className="text-white/70 max-w-3xl">
-          A fast, clean launcher for educators and students. Every click is tracked server-side and visualized live so you instantly see what’s hot.
+
+        <h1 className="mt-3 text-4xl sm:text-5xl font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white to-zinc-400">
+          Belto Hub
+        </h1>
+        <p className="mt-2 text-sm text-zinc-400 max-w-2xl">
+          Explore curated AI tools for the classroom and beyond. Click to launch — server logs every click.
         </p>
-        <div className="grid sm:grid-cols-3 gap-4">
-          <StatCard icon="Flame" label="Hottest app (total)" value={(topFive[0]?.title ?? "—")} />
-          <StatCard icon="BarChart3" label="Total tracked clicks" value={Object.values(stats?.totals ?? {}).reduce((a,b)=>a+b,0)} />
-          <StatCard icon="Clock" label="Last updated" value={stats?.lastUpdatedISO ? new Date(stats.lastUpdatedISO).toLocaleTimeString() : "—"} />
-        </div>
-      </header>
 
-      {/* STICKY FILTER BAR */}
-      <section className="sticky top-4 z-10">
-        <div className="rounded-2xl border border-white/10 bg-[rgba(0,0,0,0.35)] backdrop-blur-xl p-4">
-          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-            <div className="flex gap-2">
-              <button
-                onClick={()=>setView("teachers")}
-                className={clsx(
-                  "inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/10 hover:bg-white/15 transition",
-                  view==="teachers" && "ring-2 ring-white/25"
-                )}
-                title={`Apps for teachers (${tCount})`}
-              >
-                <GraduationCap className="w-4 h-4" /> For Teachers ({tCount})
-              </button>
-              <button
-                onClick={()=>setView("students")}
-                className={clsx(
-                  "inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/10 hover:bg-white/15 transition",
-                  view==="students" && "ring-2 ring-white/25"
-                )}
-                title={`Apps for students (${sCount})`}
-              >
-                <Users className="w-4 h-4" /> For Students ({sCount})
-              </button>
-            </div>
-
-            <div className="flex gap-2">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-2.5 text-white/50"/>
-                <input
-                  value={q} onChange={e=>setQ(e.target.value)} placeholder="Search apps…"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-9 py-2 outline-none focus:ring-2 ring-white/20 sm:w-64"
-                />
-              </div>
-              <div className="relative">
-                <select
-                  value={sort}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>)=>setSort(e.target.value as "hot"|"alpha")}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 pr-10 outline-none focus:ring-2 ring-white/20"
-                >
-                  <option value="hot">Sort by hottest</option>
-                  <option value="alpha">Sort A→Z</option>
-                </select>
-                <BarChart3 className="w-4 h-4 absolute right-3 top-2.5 text-white/50"/>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* GRID */}
-      <section className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {apps.map(a => {
-          const total = stats?.totals[a.slug] ?? 0;
-          const today = stats?.today[a.slug] ?? 0;
-          const series = stats?.last14[a.slug] ?? [];
-          return (
-<a href={`/go/${a.slug}`}>
-            <AppCard
-              key={a.slug}
-              slug={a.slug}
-              title={a.title}
-              description={a.description}
-              icon={a.icon as any}
-              stat={{ total, today, series }}
-              maxTotal={maxTotal}
-              url={a.url}
-            />
-</a>
-          );
-        })}
-        {apps.length === 0 && (
-          <div className="col-span-full text-white/70 text-sm">
-            Nothing here yet. Try a different view or clear the search.
-          </div>
-        )}
-      </section>
-
-      {/* LEADERBOARD */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Flame className="w-5 h-5 text-white/80" />
-          <h2 className="text-xl font-semibold">Most clicked</h2>
-        </div>
-        <div className="grid md:grid-cols-5 sm:grid-cols-3 grid-cols-1 gap-4">
-          {topFive.map((x,i)=>(
-            <a
-              key={x.slug}
-              href={x.url}
-              onClick={()=>beacon(x.slug)}
-              target="_blank" rel="noopener noreferrer"
-              className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_8px_40px_rgba(0,0,0,.35)] p-4 hover:bg-white/10 transition"
+        {/* Segmented control + search + sort */}
+        <div className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-center">
+          {/* segmented */}
+          <div className="flex w-full lg:w-auto items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.03] p-1">
+            <button
+              onClick={() => setLane("educators")}
+              className={`px-4 py-2 text-sm rounded-xl transition ${
+                lane === "educators" ? "bg-white/10 text-zinc-100" : "text-zinc-400 hover:text-zinc-200"
+              }`}
             >
-              <div className="text-sm text-white/60">#{i+1}</div>
-              <div className="font-semibold">{x.title}</div>
-              <div className="text-sm text-white/60 mt-1">{x.total} total clicks</div>
-            </a>
-          ))}
+              For Educators <span className="ml-1 text-xs text-zinc-400">({educators.length})</span>
+            </button>
+            <button
+              onClick={() => setLane("students")}
+              className={`px-4 py-2 text-sm rounded-xl transition ${
+                lane === "students" ? "bg-white/10 text-zinc-100" : "text-zinc-400 hover:text-zinc-2 00"
+              }`}
+            >
+              For Students <span className="ml-1 text-xs text-zinc-400">({students.length})</span>
+            </button>
+          </div>
+
+          {/* search */}
+          <div className="relative w-full lg:max-w-md">
+            <LucideIcon
+              name="Search"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400"
+            />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={`Search ${lane === "educators" ? "educator" : "student"} tools…`}
+              className="w-full rounded-xl border border-white/10 bg-white/[0.03] py-2.5 pl-9 pr-3 text-sm text-zinc-200 placeholder:text-zinc-500 shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            />
+          </div>
+
+          {/* sort */}
+          <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+            <button
+              onClick={() => setSort("hot")}
+              className={`px-3 py-1.5 text-xs rounded-lg transition ${
+                sort === "hot" ? "bg-white/10 text-zinc-100" : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              Hot
+            </button>
+            <button
+              onClick={() => setSort("alpha")}
+              className={`px-3 py-1.5 text-xs rounded-lg transition ${
+                sort === "alpha" ? "bg-white/10 text-zinc-100" : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              A–Z
+            </button>
+          </div>
         </div>
       </section>
+
+      {/* Section label */}
+      <div className="relative z-10 mb-3 flex items-center gap-2 text-xs text-zinc-400">
+        <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-1">
+          <LucideIcon name={lane === "educators" ? "GraduationCap" : "Users"} className="h-3.5 w-3.5" />
+          {lane === "educators" ? "For Educators" : "For Students"}
+        </span>
+        <span className="opacity-60">·</span>
+        <span>{active.length} {active.length === 1 ? "tool" : "tools"}</span>
+      </div>
+
+      {/* Grid */}
+      <AnimatePresence initial={false} mode="popLayout">
+        <motion.div
+          key={lane} /* re-stagger when switching lanes */
+          variants={container}
+          initial="hidden"
+          animate="show"
+          className="relative z-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          {active.map((a) => {
+            const s = stats[a.slug] ?? { total: 0, today: 0, series: [] };
+            const trending = (s.today ?? 0) >= 3;
+
+            return (
+              <motion.a
+                key={a.slug}
+                variants={card}
+                whileHover={{ y: -6, scale: 1.02 }}
+                whileTap={{ scale: 0.99 }}
+                href={`/go/${a.slug}`}
+                className="group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-zinc-900/80 to-zinc-950/80 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+              >
+                {/* Moving gradient border */}
+                <div className="pointer-events-none absolute -inset-px rounded-2xl opacity-60 group-hover:opacity-100 transition">
+                  <div className="absolute inset-0 rounded-2xl [mask:linear-gradient(#000,transparent_30%)] bg-gradient-to-r from-indigo-500/40 via-fuchsia-500/40 to-cyan-500/40 blur-md" />
+                  <div className="absolute inset-0 rounded-2xl ring-1 ring-white/10" />
+                </div>
+
+                {/* Shine sweep */}
+                <div className="pointer-events-none absolute -inset-6 rotate-12 opacity-0 group-hover:opacity-100 [animation:card-shine_1.1s_linear] bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+
+                {/* Top row */}
+                <div className="relative z-10 flex items-start gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 ring-1 ring-white/10 shadow-inner">
+                    <LucideIcon
+                      name={a.icon}
+                      className="h-5 w-5 text-zinc-100 transition-transform duration-300 group-hover:scale-110"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-base font-medium leading-tight text-zinc-100 truncate">{a.title}</h3>
+                    <p className="mt-1 text-sm text-zinc-400 line-clamp-2">{a.description}</p>
+                  </div>
+
+                  {trending && (
+                    <motion.span
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="ml-auto inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-1 text-[10px] font-medium text-amber-300 ring-1 ring-amber-400/20"
+                    >
+                      <LucideIcon name="Flame" className="h-3.5 w-3.5" />
+                      Trending
+                    </motion.span>
+                  )}
+                </div>
+
+                {/* Footer stats */}
+                <div className="relative z-10 mt-4 flex items-center justify-between text-[11px] text-zinc-400">
+                  <div className="inline-flex items-center gap-2">
+                    <span className="rounded-md bg-white/5 px-2 py-1 ring-1 ring-white/10 text-zinc-300">
+                      Today <span className="text-zinc-100">{s.today}</span>
+                    </span>
+                    <span className="rounded-md bg-white/5 px-2 py-1 ring-1 ring-white/10">
+                      Total <span className="text-zinc-100">{s.total}</span>
+                    </span>
+                  </div>
+                  <span className="opacity-70">Open</span>
+                </div>
+              </motion.a>
+            );
+          })}
+        </motion.div>
+      </AnimatePresence>
     </main>
   );
 }
-
-// -- __seed_stats_from_props --
-/* If you already have local state for stats, ensure it's initialized from props.
-   Example you can adapt if needed:
-   const [stats, setStats] = useState<Record<string, { total: number; today: number; series: {date:string; count:number}[] }>>(initialStats);
-*/
