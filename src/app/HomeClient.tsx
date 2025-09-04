@@ -152,7 +152,7 @@ export default function HomeClient({ initialStats, apps }: { initialStats: StatM
           const today = stats?.today[a.slug] ?? 0;
           const series = stats?.last14[a.slug] ?? [];
           return (
-<a href={`/go/${a.slug}`}>
+<a href={`/go/${a.slug}`}`}`}>
             <AppCard
               key={a.slug}
               slug={a.slug}
