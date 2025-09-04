@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
 import { LucideIcon } from "./icons";
-import type { LucideKeys } from "./icons";
 import { PopularityBar } from "./PopularityBar";
 import SparkLine from "./SparkLine";
 
@@ -16,7 +15,7 @@ function heatRing(total: number, max: number) {
 export default function AppCard({
   slug, title, description, icon, stat, maxTotal
 }: {
-  slug: string; title: string; description: string; icon: LucideKeys; stat: Stat; maxTotal: number;
+  slug: string; title: string; description: string; icon: string; stat: Stat; maxTotal: number;
 }) {
   return (
     <Link
