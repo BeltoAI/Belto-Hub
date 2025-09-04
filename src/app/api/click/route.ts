@@ -1,3 +1,5 @@
+export const dynamic="force-dynamic";
+export const runtime="nodejs";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongo";
 import { APPS_BY_SLUG } from "@/lib/apps";

@@ -152,7 +152,6 @@ export default function Home() {
           const today = stats?.today[a.slug] ?? 0;
           const series = stats?.last14[a.slug] ?? [];
           return (
-<a href={`/go/${a.slug}`} target="_blank" rel="noopener noreferrer">
             <AppCard
               key={a.slug}
               slug={a.slug}
@@ -163,7 +162,6 @@ export default function Home() {
               maxTotal={maxTotal}
               url={a.url}
             />
-</a>
           );
         })}
         {apps.length === 0 && (
