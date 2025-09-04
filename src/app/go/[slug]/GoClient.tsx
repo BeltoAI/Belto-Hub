@@ -15,7 +15,7 @@ export default function GoClient({ slug, url }: { slug: string; url: string }) {
     <main className="max-w-xl mx-auto p-6">
       <p>Opening <b>{slug}</b>…</p>
       <div className="mt-4 flex gap-4">
-        <a className="underline" href="/">Back to Belto EdStore</a>
+        <a className="underline" href="/">Back to Belto Hub</a>
         <a className="underline" href={url} target="_blank" rel="noopener noreferrer">Open directly</a>
       </div>
     </main>
