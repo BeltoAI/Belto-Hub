@@ -1,3 +1,4 @@
+import * as React from "react";
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { APPS } from "@/lib/apps";
@@ -123,7 +124,7 @@ export default function Home() {
               </div>
               <div className="relative">
                 <select
-                  value={sort} onChange={e=>setSort(e.target.value as any)}
+                  value={sort} onChange={e=>setSort(e.target.value as "hot"|"alpha")}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 pr-10 outline-none focus:ring-2 ring-white/20"
                 >
                   <option value="hot">Sort by hottest</option>
