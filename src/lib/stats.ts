@@ -1,13 +1,8 @@
-import * as Mongo from "@/lib/mongo";
+import { getDb } from "@/lib/get-db";
 
 type Pt = { date: string; count: number };
 export type Stat = { total: number; today: number; series: Pt[] };
 export type StatMap = Record<string, Stat>;
-
-async function getDb() {
-  // works whether you exported getDb() or db()
-  return "getDb" in Mongo ? await (Mongo as any).getDb() : await (Mongo as any).db();
-}
 
 export async function getClickStats(days = 14): Promise<StatMap> {
   const db = await getDb();
@@ -15,7 +10,6 @@ export async function getClickStats(days = 14): Promise<StatMap> {
   const now = new Date();
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (days - 1)));
 
-  // Aggregate counts per slug per day (UTC)
   const agg = await clicks.aggregate([
     { $match: { ts: { $gte: start } } },
     {
@@ -29,7 +23,6 @@ export async function getClickStats(days = 14): Promise<StatMap> {
     }
   ]).toArray();
 
-  // Build a calendar of days
   const daysList: string[] = [];
   for (let i = 0; i < days; i++) {
     const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (days - 1 - i)));
@@ -37,7 +30,6 @@ export async function getClickStats(days = 14): Promise<StatMap> {
   }
   const todayStr = now.toISOString().slice(0,10);
 
-  // Organize by slug
   const bySlug = new Map<string, Map<string, number>>();
   for (const row of agg as any[]) {
     const slug = row._id.slug as string;
