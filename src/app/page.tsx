@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { APPS } from "@/lib/apps";
 import AppCard from "@/components/AppCard";
 import { LucideIcon } from "@/components/icons";
-import type { LucideKeys } from "@/components/icons";
 import { BarChart3, Flame, Search, Users, GraduationCap } from "lucide-react";
 import clsx from "clsx";
 
@@ -15,6 +14,13 @@ type StatsPayload = {
   lastUpdatedISO: string;
 };
 type View = "teachers" | "students";
+
+function beacon(slug: string) {
+  try {
+    const blob = new Blob([JSON.stringify({ slug, ts: Date.now() })], { type: "application/json" });
+    navigator.sendBeacon("/api/click", blob);
+  } catch {}
+}
 
 export default function Home() {
   const [view, setView] = useState<View>("teachers");
@@ -51,7 +57,7 @@ export default function Home() {
 
   const topFive = useMemo(()=>{
     if (!stats) return [];
-    return APPS.map(a => ({ slug: a.slug, title: a.title, total: stats.totals[a.slug] ?? 0 }))
+    return APPS.map(a => ({ slug: a.slug, title: a.title, total: stats.totals[a.slug] ?? 0, url: a.url }))
       .sort((x,y)=> y.total - x.total)
       .slice(0,5);
   }, [stats]);
@@ -59,7 +65,7 @@ export default function Home() {
   const tCount = APPS.filter(a=>a.category==="teachers").length;
   const sCount = APPS.filter(a=>a.category==="students").length;
 
-  function StatCard({ icon, label, value }: { icon: LucideKeys; label: string; value: string | number }) {
+  function StatCard({ icon, label, value }: { icon: any; label: string; value: string | number }) {
     return (
       <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_8px_40px_rgba(0,0,0,.35)] p-4 flex items-center gap-3">
         <div className="p-3 rounded-xl bg-white/10"><LucideIcon name={icon} className="w-5 h-5"/></div>
@@ -125,7 +131,8 @@ export default function Home() {
               </div>
               <div className="relative">
                 <select
-                  value={sort} onChange={e=>setSort(e.target.value as "hot"|"alpha")}
+                  value={sort}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>)=>setSort(e.target.value as "hot"|"alpha")}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 pr-10 outline-none focus:ring-2 ring-white/20"
                 >
                   <option value="hot">Sort by hottest</option>
@@ -150,9 +157,10 @@ export default function Home() {
               slug={a.slug}
               title={a.title}
               description={a.description}
-              icon={a.icon}
+              icon={a.icon as any}
               stat={{ total, today, series }}
               maxTotal={maxTotal}
+              url={a.url}
             />
           );
         })}
@@ -173,7 +181,8 @@ export default function Home() {
           {topFive.map((x,i)=>(
             <a
               key={x.slug}
-              href={`/go/${x.slug}`}
+              href={x.url}
+              onClick={()=>beacon(x.slug)}
               target="_blank" rel="noopener noreferrer"
               className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_8px_40px_rgba(0,0,0,.35)] p-4 hover:bg-white/10 transition"
             >

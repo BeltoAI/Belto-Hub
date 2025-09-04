@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import * as React from "react";
 import { LucideIcon } from "./icons";
 import type { LucideKeys } from "./icons";
 import { PopularityBar } from "./PopularityBar";
@@ -9,18 +9,27 @@ type Stat = { total: number; today: number; series: { date: string; count: numbe
 
 function heatRing(total: number, max: number) {
   const t = max > 0 ? total / max : 0;
-  const hue = 210 - Math.round(210 * t); // blue->red as it gets hotter
+  const hue = 210 - Math.round(210 * t);
   return `shadow-[0_0_0_3px_hsl(${hue}_90%_55%_/_0.45)]`;
 }
 
 export default function AppCard({
-  slug, title, description, icon, stat, maxTotal
+  slug, title, description, icon, stat, maxTotal, url
 }: {
-  slug: string; title: string; description: string; icon: LucideKeys; stat: Stat; maxTotal: number;
+  slug: string; title: string; description: string; icon: LucideKeys; stat: Stat; maxTotal: number; url: string;
 }) {
+  const onClick = React.useCallback(() => {
+    try {
+      const blob = new Blob([JSON.stringify({ slug, ts: Date.now() })], { type: "application/json" });
+      navigator.sendBeacon("/api/click", blob);
+    } catch {}
+  }, [slug]);
+
   return (
-    <Link
-      href={`/go/${slug}`}
+    <a
+      href={url}
+      onClick={onClick}
+      target="_blank" rel="noopener noreferrer"
       className="group relative block rounded-2xl border border-white/10 bg-[rgba(255,255,255,0.06)] backdrop-blur-xl 
                  shadow-[0_12px_40px_rgba(0,0,0,.35)] hover:shadow-[0_18px_70px_rgba(0,0,0,.55)]
                  transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 ring-white/30"
@@ -49,14 +58,11 @@ export default function AppCard({
 
         <div className="flex items-center justify-between pt-1">
           <div className="text-xs text-white/60">Total clicks: <span className="font-semibold text-white/80">{stat.total}</span></div>
-          <div
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 
-                       bg-white/10 group-hover:bg-white/15 transition text-sm"
-          >
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/10 group-hover:bg-white/15 transition text-sm">
             Launch
           </div>
         </div>
       </div>
-    </Link>
+    </a>
   );
 }

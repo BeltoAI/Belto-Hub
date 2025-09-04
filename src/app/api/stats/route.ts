@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongo";
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
@@ -35,7 +36,9 @@ export async function GET() {
 
     return NextResponse.json({ totals, today, last14, lastUpdatedISO: new Date().toISOString() }, { headers: { "Cache-Control": "no-store" } });
   } catch (e: any) {
-    // SAFE FALLBACK
-    return NextResponse.json({ totals: {}, today: {}, last14: {}, lastUpdatedISO: new Date().toISOString(), error: e?.message ?? "db error" }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json(
+      { totals: {}, today: {}, last14: {}, lastUpdatedISO: new Date().toISOString(), error: e?.message ?? "db error" },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   }
 }
