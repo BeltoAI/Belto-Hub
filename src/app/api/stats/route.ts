@@ -2,8 +2,6 @@ export const dynamic="force-dynamic";
 export const runtime="nodejs";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongo";
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {

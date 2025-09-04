@@ -4,8 +4,6 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongo";
 import { APPS_BY_SLUG } from "@/lib/apps";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {

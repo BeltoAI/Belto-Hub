@@ -152,7 +152,7 @@ export default function Home() {
           const today = stats?.today[a.slug] ?? 0;
           const series = stats?.last14[a.slug] ?? [];
           return (
-<a href={`/go/${a.slug}`} target="_blank" rel="noopener noreferrer">
+<a href={`/go/${a.slug}`}>
             <AppCard
               key={a.slug}
               slug={a.slug}
