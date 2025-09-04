@@ -19,7 +19,7 @@ export default async function GoPage(
   if (!app) return redirect("/");
 
   try {
-    const h = headers();
+    const h = await headers();
     const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
     const ua = h.get("user-agent") ?? "";
     const db = await getDb();
