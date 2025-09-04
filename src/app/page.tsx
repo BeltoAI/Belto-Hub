@@ -1,3 +1,4 @@
+export const runtime = "nodejs";
 import { APPS } from "@/lib/apps";
 import { getClickStats } from "@/lib/stats";
 import HomeClient from "./HomeClient";

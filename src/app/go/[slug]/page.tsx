@@ -18,7 +18,7 @@ export default async function GoPage(
   if (!app) return redirect("/");
 
   try {
-    const h = await headers();
+    const h = headers();
     const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
     const ua = h.get("user-agent") ?? "";
     const database = "getDb" in Mongo ? await (Mongo as any).getDb() : await (Mongo as any).db();
