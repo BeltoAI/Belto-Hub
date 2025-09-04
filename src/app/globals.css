@@ -25,3 +25,10 @@ body {
   10%  { opacity: 1; }
   to   { transform: translateX(120%); opacity: 0; }
 }
+
+/* ===== Belto Hub premium animations ===== */
+@keyframes card-shine {
+  0%   { transform: translateX(-120%); opacity: 0; }
+  10%  { opacity: .9; }
+  100% { transform: translateX(120%); opacity: 0; }
+}
