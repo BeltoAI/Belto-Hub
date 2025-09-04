@@ -1,103 +1,185 @@
-import Image from "next/image";
+"use client";
+import { useEffect, useMemo, useState } from "react";
+import { APPS } from "@/lib/apps";
+import AppCard from "@/components/AppCard";
+import { LucideIcon } from "@/components/icons";
+import { BarChart3, Flame, ListFilter, Search, Users, GraduationCap } from "lucide-react";
+import clsx from "clsx";
+
+type StatsPayload = {
+  totals: Record<string, number>;
+  today: Record<string, number>;
+  last14: Record<string, { date: string; count: number }[]>;
+  lastUpdatedISO: string;
+};
+type View = "teachers" | "students";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [view, setView] = useState<View>("teachers");
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState<"hot" | "alpha">("hot");
+  const [stats, setStats] = useState<StatsPayload | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  useEffect(() => {
+    const run = async () => {
+      const res = await fetch("/api/stats", { cache: "no-store" });
+      const data = (await res.json()) as StatsPayload;
+      setStats(data);
+    };
+    run();
+    const id = setInterval(run, 15000);
+    return () => clearInterval(id);
+  }, []);
+
+  const apps = useMemo(() => {
+    const filtered = APPS
+      .filter(a => a.category === view)
+      .filter(a => a.title.toLowerCase().includes(q.toLowerCase()) || a.description.toLowerCase().includes(q.toLowerCase()));
+    const withTotals = filtered.map(a => ({ a, t: stats?.totals[a.slug] ?? 0 }));
+    if (sort === "hot") withTotals.sort((x,y)=> y.t - x.t || x.a.title.localeCompare(y.a.title));
+    if (sort === "alpha") withTotals.sort((x,y)=> x.a.title.localeCompare(y.a.title));
+    return withTotals.map(({a})=>a);
+  }, [stats, q, sort, view]);
+
+  const maxTotal = useMemo(()=>{
+    if (!stats) return 0;
+    let m = 0; for (const s of APPS) { m = Math.max(m, stats.totals[s.slug] ?? 0); }
+    return m;
+  }, [stats]);
+
+  const topFive = useMemo(()=>{
+    if (!stats) return [];
+    return APPS.map(a => ({ slug: a.slug, title: a.title, total: stats.totals[a.slug] ?? 0 }))
+      .sort((x,y)=> y.total - x.total)
+      .slice(0,5);
+  }, [stats]);
+
+  const tCount = APPS.filter(a=>a.category==="teachers").length;
+  const sCount = APPS.filter(a=>a.category==="students").length;
+
+  function StatCard({ icon, label, value }: { icon: string; label: string; value: string | number }) {
+    return (
+      <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_8px_40px_rgba(0,0,0,.35)] p-4 flex items-center gap-3">
+        <div className="p-3 rounded-xl bg-white/10"><LucideIcon name={icon} className="w-5 h-5"/></div>
+        <div>
+          <div className="text-sm text-white/60">{label}</div>
+          <div className="text-lg font-semibold">{value}</div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </div>
+    );
+  }
+
+  return (
+    <main className="space-y-10">
+      {/* HERO */}
+      <header className="space-y-6">
+        <div className="text-4xl sm:text-5xl font-extrabold leading-tight tracking-tight">
+          The <span className="gradient-text">Belto</span> Apps Hub
+        </div>
+        <p className="text-white/70 max-w-3xl">
+          A fast, clean launcher for educators and students. Every click is tracked server-side and visualized live so you instantly see what’s hot.
+        </p>
+        <div className="grid sm:grid-cols-3 gap-4">
+          <StatCard icon="Flame" label="Hottest app (total)" value={(topFive[0]?.title ?? "—")} />
+          <StatCard icon="BarChart3" label="Total tracked clicks" value={Object.values(stats?.totals ?? {}).reduce((a,b)=>a+b,0)} />
+          <StatCard icon="Clock" label="Last updated" value={stats?.lastUpdatedISO ? new Date(stats.lastUpdatedISO).toLocaleTimeString() : "—"} />
+        </div>
+      </header>
+
+      {/* STICKY FILTER BAR */}
+      <section className="sticky top-4 z-10">
+        <div className="rounded-2xl border border-white/10 bg-[rgba(0,0,0,0.35)] backdrop-blur-xl p-4">
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+            <div className="flex gap-2">
+              <button
+                onClick={()=>setView("teachers")}
+                className={clsx(
+                  "inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/10 hover:bg-white/15 transition",
+                  view==="teachers" && "ring-2 ring-white/25"
+                )}
+                title={`Apps for teachers (${tCount})`}
+              >
+                <GraduationCap className="w-4 h-4" /> For Teachers ({tCount})
+              </button>
+              <button
+                onClick={()=>setView("students")}
+                className={clsx(
+                  "inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/10 hover:bg-white/15 transition",
+                  view==="students" && "ring-2 ring-white/25"
+                )}
+                title={`Apps for students (${sCount})`}
+              >
+                <Users className="w-4 h-4" /> For Students ({sCount})
+              </button>
+            </div>
+
+            <div className="flex gap-2">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-2.5 text-white/50"/>
+                <input
+                  value={q} onChange={e=>setQ(e.target.value)} placeholder="Search apps…"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-9 py-2 outline-none focus:ring-2 ring-white/20 sm:w-64"
+                />
+              </div>
+              <div className="relative">
+                <select
+                  value={sort} onChange={e=>setSort(e.target.value as any)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 pr-10 outline-none focus:ring-2 ring-white/20"
+                >
+                  <option value="hot">Sort by hottest</option>
+                  <option value="alpha">Sort A→Z</option>
+                </select>
+                <BarChart3 className="w-4 h-4 absolute right-3 top-2.5 text-white/50"/>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* GRID */}
+      <section className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {apps.map(a => {
+          const total = stats?.totals[a.slug] ?? 0;
+          const today = stats?.today[a.slug] ?? 0;
+          const series = stats?.last14[a.slug] ?? [];
+          return (
+            <AppCard
+              key={a.slug}
+              slug={a.slug}
+              title={a.title}
+              description={a.description}
+              icon={a.icon}
+              stat={{ total, today, series }}
+              maxTotal={maxTotal}
+            />
+          );
+        })}
+        {apps.length === 0 && (
+          <div className="col-span-full text-white/70 text-sm">
+            Nothing here yet. Try a different view or clear the search.
+          </div>
+        )}
+      </section>
+
+      {/* LEADERBOARD */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Flame className="w-5 h-5 text-white/80" />
+          <h2 className="text-xl font-semibold">Most clicked</h2>
+        </div>
+        <div className="grid md:grid-cols-5 sm:grid-cols-3 grid-cols-1 gap-4">
+          {topFive.map((x,i)=>(
+            <div
+              key={x.slug}
+              className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_8px_40px_rgba(0,0,0,.35)] p-4"
+            >
+              <div className="text-sm text-white/60">#{i+1}</div>
+              <div className="font-semibold">{x.title}</div>
+              <div className="text-sm text-white/60 mt-1">{x.total} total clicks</div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </main>
   );
 }
