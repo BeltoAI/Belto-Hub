@@ -13,5 +13,15 @@ export const APPS: AppItem[] = [
   { slug:"educational-ai-search", title:"Educational AI Search Engine", url:"https://path-finder-fawn.vercel.app", category:"students", description:"High-signal academic search with source-aware answers.", icon:"Search" },
   { slug:"beltos-stupid-game", title:"Belto’s Stupid Game", url:"https://stupid-game-pi.vercel.app", category:"students", description:"A silly break that keeps your brain agile between study sprints.", icon:"Joystick" },
   { slug:"mind-map-generator", title:"Mind Map Generator", url:"https://mind-sepia-rho.vercel.app", category:"students", description:"Visualize concepts and connections for deep understanding.", icon:"Share2" },
+  {
+  slug: "practice-forge",
+  title: "Practice Forge",
+  description: "Generate custom practice problems and quick quizzes.",
+  url: "https://practice-forge.vercel.app/",
+  icon: "Hammer",            // lucide icon name; feel free to switch to "Hammer" or "PencilLine"
+  audience: "students",     // <- ensures it appears under Students
+  tags: ["practice", "generator", "problems"],
+  keywords: "practice, problems, quizzes, generator"
+}
 ];
 export const APPS_BY_SLUG = Object.fromEntries(APPS.map(a => [a.slug, a]));
